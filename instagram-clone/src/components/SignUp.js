@@ -1,11 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState , useContext } from "react";
 import logo from "../img/logo.jpg";
 import "../css/SignUp.css";
-import { Link , useNavigate } from "react-router-dom";
-import {toast} from 'react-toastify';
-
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import { GoogleLogin } from "@react-oauth/google";
+import jwt_decode from 'jwt-decode'
+import { LoginContext } from "../context/LoginContext";
 
 export default function SignUp() {
+  const {setUserLogin} = useContext(LoginContext)
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -13,47 +16,87 @@ export default function SignUp() {
   const [password, setPassword] = useState("");
 
   // Toast function
-  const notifyA = (msg) =>{
-    toast.error(msg)
-  }
-  const notifyB = (msg) =>{
-    toast.success(msg)
-  }
+  const notifyA = (msg) => {
+    toast.error(msg);
+  };
+  const notifyB = (msg) => {
+    toast.success(msg);
+  };
   const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
-  const passRegex =  /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\$%\^&\*])(?=.{8,})/
+  const passRegex =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\$%\^&\*])(?=.{8,})/;
   const postData = () => {
     //checking email
-    if(!emailRegex.test(email)){
-      notifyA("Invalid email")
-      return
-    }else if(!passRegex.test(password)){
-      notifyA("Password must conatin at least 8 characters,including at least 1 number and 1 includes both lower and uppercase letters and special characters for example #,?,!")
-      return 
+    if (!emailRegex.test(email)) {
+      notifyA("Invalid email");
+      return;
+    } else if (!passRegex.test(password)) {
+      notifyA(
+        "Password must conatin at least 8 characters,including at least 1 number and 1 includes both lower and uppercase letters and special characters for example #,?,!"
+      );
+      return;
     }
     //sending data to server
-    fetch("/signup",{
-      method:"post",
-      headers : {
-        "Content-Type" : "application/json"
+    fetch("/signup", {
+      method: "post",
+      headers: {
+        "Content-Type": "application/json",
       },
-      body : JSON.stringify({
-        name : name,
-        email : email,
-        userName : userName,
-        password : password
-      })
-    }).then(res=>res.json())
-    .then(data => {
-      if(data.error){
-        notifyA(data.error)
-      }else{
-        notifyB(data.message)
-        navigate('/signin')
-      }
-      
-      console.log(data)
+      body: JSON.stringify({
+        name: name,
+        email: email,
+        userName: userName,
+        password: password,
+      }),
     })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error) {
+          notifyA(data.error);
+        } else {
+          notifyB(data.message);
+          navigate("/signin");
+        }
+
+        console.log(data);
+      });
   };
+  const continueWithGoogle = (credentialResponse) =>{
+    console.log(credentialResponse)
+    const jwtDetail = jwt_decode(credentialResponse.credential) 
+    console.log(jwtDetail)
+    fetch('/googleLogin',{
+      method: "post",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: jwtDetail.name,
+        email: jwtDetail.email,
+        userName: jwtDetail.userName,
+       email_verified : jwtDetail.email_verified,
+       clientId : credentialResponse.clientId,
+       Photo : jwtDetail.pictuer
+      }),
+    })
+    .then((res) => res.json())
+      .then((data) => {
+        if(data.error){
+          notifyA(data.error)
+        }else{
+          notifyB("Signed In Successfully")
+          console.log(data)
+          localStorage.setItem('jwt',data.token)
+          localStorage.setItem('user',JSON.stringify(data.user))
+          setUserLogin(true)
+          navigate('/')
+        }
+        
+        console.log(data)
+      });
+  }
+
+
 
   return (
     <div className="signup">
@@ -119,7 +162,24 @@ export default function SignUp() {
             <br />
             privacy policy and cookies policy.
           </p>
-          <input type="submit" id="submit-btn" value="Sign up" onClick={()=>{postData()}} />
+          <input
+            type="submit"
+            id="submit-btn"
+            value="Sign up"
+            onClick={() => {
+              postData();
+            }}
+          />
+          <hr/>
+          <GoogleLogin
+            onSuccess={(credentialResponse) => {
+             continueWithGoogle(credentialResponse)
+            }}
+            onError={() => {
+              console.log("Login Failed");
+            }}
+          />
+          ;
         </div>
         <div className="form2">
           Already have an account?{" "}

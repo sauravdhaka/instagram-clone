@@ -7,10 +7,6 @@ const jwt = require("jsonwebtoken");
 const { Jwt_secret } = require("../keys");
 const requireLogin = require("../middlewares/requireLogin");
 
-
-
-
-
 router.post("/signup", (req, res) => {
   const { name, userName, email, password } = req.body;
   if (!name || !email || !userName || !password) {
@@ -55,11 +51,11 @@ router.post("/signin", (req, res) => {
       .compare(password, savedUser.password)
       .then((match) => {
         if (match) {
-         // return res.status(200).json({ message: "Signed In successfully" });
-         const token = jwt.sign({_id:savedUser.id},Jwt_secret)
-         const {_id,name,email,userName} = savedUser
-         res.json({token,user:{_id,name,email,userName}})
-         console.log({token,user:{_id,name,email,userName}})
+          // return res.status(200).json({ message: "Signed In successfully" });
+          const token = jwt.sign({ _id: savedUser.id }, Jwt_secret);
+          const { _id, name, email, userName } = savedUser;
+          res.json({ token, user: { _id, name, email, userName } });
+          console.log({ token, user: { _id, name, email, userName } });
         } else {
           return res.status(422).json({ error: "Invalid password" });
         }
@@ -69,4 +65,39 @@ router.post("/signin", (req, res) => {
       });
   });
 });
+
+router.post("/googleLogin", (req, res) => {
+  const { email_verified, email, name, clientId, userName, Photo } = req.body;
+  if (email_verified) {
+    USER.findOne({ email: email }).then((savedUser) => {
+      if (savedUser) {
+        const token = jwt.sign({ _id: savedUser.id }, Jwt_secret);
+        const { _id, name, email, userName } = savedUser;
+        res.json({ token, user: { _id, name, email, userName } });
+        console.log({ token, user: { _id, name, email, userName } });
+      } else {
+        const password = email + clientId;
+        const user = new USER({
+          name,
+          email,
+          userName,
+          password: password,
+          Photo,
+        });
+
+        user
+          .save()
+          .then((user) => {
+            let userId = user._id.toString()
+            const token = jwt.sign({ _id: userId}, Jwt_secret);
+            const { _id, name, email, userName } = user;
+            res.json({ token, user: { _id, name, email, userName } });
+            console.log({ token, user: { _id, name, email, userName } });
+          })
+          .catch((user) => res.json({ message: "Not saved" }));
+      }
+    });
+  }
+});
+
 module.exports = router;
